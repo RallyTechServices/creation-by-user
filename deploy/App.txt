@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TS Created By List</title>
+    <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
+    <!--  Build Date: Wed Nov 23 2016 13:27:05 GMT-0800 (PST) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Wed Nov 23 2016 13:27:05 GMT-0800 (PST)";
+        var STORY    = "US919";
+        var BUILDER  = "jmartin";
+        var CHECKSUM = 7573551588;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
+    <!-- our highcharts (needed so that we can add patterns) -->
+    <script type="text/javascript" src="/apps/2.1/lib/analytics/analytics-all.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350,
+    
+    informationalConfig: null,
+    
+    items: [{xtype:'container', itemId:'information' }],
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/var BUILDER  = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+       
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+   
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    var stored_checksum = me._generateChecksum(text);
+                    if ( CHECKSUM !== stored_checksum ) {
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _addToContainer: function(container){
+        var config = Ext.apply({
+            xtype:'container',
+            height: 200,
+            overflowY: true
+        }, this.informationalConfig);
+        
+        container.add(config);
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if ( !Ext.isEmpty( this.informationalConfig ) ) {
+            var container = this.down('#information');
+            this._addToContainer(container);
+            
+        }
+        
+        if (! app.isExternal() ) {
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            dock: 'bottom',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml,
+                doc: 'top'
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            dock:'bottom',
+            html:"This app was created by the CA AC Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            var build_html = Ext.String.format("Built on: {0} <br/>Built by: {1}",
+                APP_BUILD_DATE,
+                BUILDER);
+                
+            if ( STORY ) {
+                build_html = build_html + "<br/>Source story: " + STORY;
+            }
+                
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html: build_html
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+
+Ext.override(Rally.ui.grid.InvalidGridColumnCfgFilterer,{
+    // don't want to remove columns just because they aren't on the model def
+    filter: function(model, columnCfgs){
+        return _.filter(columnCfgs, function(column) {
+            return true;
+        }, this);
+    }
+});
+
+// Sometimes getting an error when trying to use the artifact model
+Ext.override(Rally.data.wsapi.artifact.Store,{
+    _getModelTypes: function() {
+        if ( Ext.isFunction(this.model.getArtifactComponentModels)) {
+            return _.pluck(this.model.getArtifactComponentModels(), 'typePath').join(',');
+        }
+        return null;
+    }
+});
+Ext.define('CA.agile.technicalservices.inlinefilter.CreatorSearchField', {
+    alias: 'widget.tscreatorsearchfield',
+    extend: 'Rally.ui.inlinefilter.ArtifactSearchField',
+    requires: [
+        'Rally.data.wsapi.Filter'
+    ],
+
+    allowBlank: true,
+    getFilter: function() {
+        var value = this.lastValue;
+        if (!Ext.isEmpty(value)) {
+            return Rally.data.wsapi.Filter.or([
+                {
+                    property: 'UserName',
+                    operator: 'contains',
+                    value: value
+                },
+                {
+                    property: 'DisplayName',
+                    operator: 'contains',
+                    value: value
+                },
+                {
+                    property: 'EmailAddress',
+                    operator: 'contains',
+                    value: value
+                },
+                {
+                    property: 'FirstName',
+                    operator: 'contains',
+                    value: value
+                },
+                {
+                    property: 'LastName',
+                    operator: 'contains',
+                    value: value
+                }
+            ]);
+        }
+    }
+});
+Ext.define('CA.technicalservices.userutilities.FieldPicker', {
+    alias: 'widget.tsfieldpickerbutton',
+    extend:'Rally.ui.Button',
+    requires: [
+        'Rally.ui.popover.Popover',
+        'Rally.ui.Button',
+        'Rally.ui.picker.FieldPicker',
+        'Ext.state.Manager'
+    ],
+    toolTipConfig: {
+        html: 'Show Columns',
+        anchor: 'top'
+    },
+    iconCls: 'icon-add-column',
+
+    cls: 'field-picker-btn secondary rly-small',
+
+    alwaysSelectedValues: ['FormattedID','Name'], // DragAndDropRank gets added in init if Drag and Drop is enabled for the workspace in the component's context
+
+    fieldBlackList: [],
+
+    fieldPickerConfig: {},
+
+    buttonConfig: {},
+
+    modelNames: ['User'],
+
+    rankingEnabled: false,
+
+    margin: '3 9 0 0',
+
+    //This does not show the Rank column
+
+    constructor: function (config) {
+        this.config = _.merge({}, this.config || {}, config || {});
+        this.callParent([config]);
+    },
+
+    initComponent: function() {
+
+        if (this.models){
+            this.on('click', this._createPopover, this);
+            this.callParent(arguments);
+            return;
+        }
+
+        if (this.context && this.modelNames && this.modelNames.length > 0){
+            Rally.data.ModelFactory.getModels({
+                types: this.modelNames,
+                context: this.context,
+                success: function(models){
+                    this.models = models;
+                },
+                failure: function(failedParam){
+                    console.log('failedparam');
+                },
+                scope: this
+            });
+            this.on('click', this._createPopover, this);
+        } else {
+            this.iconCls = 'icon-none';
+            var msg = "Please update the CA.technicalservices.FieldPicker configuration with modelNames and context";
+            this.toolTipConfig= {
+                html: '<div style="color:red;">' + msg + '</div>'
+            };
+            this.on('click', function(){ Rally.ui.notify.Notifier.showError({message: msg}); });
+        }
+        this.callParent(arguments);
+    },
+    getFields: function(){
+        return this._fields || this.alwaysSelectedValues;
+    },
+    _getPickerConfig: function() {
+        var pickerConfig;
+        pickerConfig = _.extend({
+            value: this._fields,
+            fieldBlackList: this.fieldBlackList,
+            alwaysSelectedValues: this.alwaysSelectedValues,
+            context: this.context
+        }, this.fieldPickerConfig);
+
+        return pickerConfig;
+    },
+
+    _createPopover: function(btn) {
+        var popoverTarget = btn.getEl();
+
+        this.popover = Ext.create('Rally.ui.popover.Popover', {
+            target: popoverTarget,
+            placement: ['bottom', 'left', 'top', 'right'],
+            cls: 'field-picker-popover',
+            toFront: Ext.emptyFn,
+            buttonAlign: 'center',
+            title: this.getTitle(),
+            listeners: {
+                destroy: function () {
+                    this.popover = null;
+                },
+                scope: this
+            },
+            buttons: [
+                {
+                    xtype: "rallybutton",
+                    text: 'Apply',
+                    cls: 'field-picker-apply-btn primary rly-small',
+                    listeners: {
+                        click: function() {
+                            this._onApply(this.popover);
+                        },
+                        scope: this
+                    }
+                },
+                {
+                    xtype: "rallybutton",
+                    text: 'Cancel',
+                    cls: 'field-picker-cancel-btn secondary dark rly-small',
+                    listeners: {
+                        click: function() {
+                            this.popover.close();
+                        },
+                        scope: this
+                    }
+                }
+            ],
+            items: [
+                _.extend({
+                    xtype: 'rallyfieldpicker',
+                    cls: 'field-picker',
+                    itemId: 'fieldpicker',
+                    modelTypes: this._getModelTypes(),
+                    alwaysExpanded: true,
+                    width: 200,
+                    emptyText: 'Search',
+                    selectedTextLabel: 'Selected',
+                    availableTextLabel: 'Available',
+                    listeners: {
+                        specialkey: function(field, e) {
+                            if (e.getKey() === e.ESC) {
+                                this.popover.close();
+                            }
+                        },
+                        scope: this
+                    }
+                }, this._getPickerConfig())
+            ]
+        });
+    },
+
+    _getModelTypes: function() {
+        return _.pluck(this._getModels(), 'typePath');
+    },
+
+    _getModels: function() {
+        return _.reduce(this.models, function(accum, model) {
+            if (model.typePath === 'artifact') {
+                accum = accum.concat(model.getArtifactComponentModels());
+            } else {
+                accum.push(model);
+            }
+            return accum;
+        }, []);
+    },
+
+    getTitle: function () {
+        return 'Show Columns';
+    },
+
+    /**
+     * Update the fields displayed. In grid mode this will be the columns displayed. In board mode it will be
+     * the fields on the cards
+     *
+     * @param {String[]|Object[]} fields A list of field names to display
+     * @param {Boolean} true to suspend store load if it will be triggered elsewhere
+     */
+    updateFields: function (fields, suspendLoad) {
+        this._fields = fields;
+        if (this.popover && this.popover.down('rallyfieldpicker')) {
+            this.popover.down('rallyfieldpicker').setValue(fields.join(','));
+        }
+        this.saveState();
+    },
+    getState: function(){
+        return {
+            fields: this._fields
+        };
+    },
+    applyState: function(state){
+        if (state){
+            this._fields = state.fields;
+        }
+    },
+    _onApply: function(popover) {
+        var fieldPicker = popover.down('rallyfieldpicker'),
+            fields = _.map(fieldPicker.getValue(), function (field) {
+                return field.get('name');
+            });
+
+        this.updateFields(fields);
+        popover.close();
+
+        this.fireEvent('fieldsupdated', fields);
+    }
+});
+Ext.define("TSCreatedByList", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 10 },
+    
+    items: [
+        {xtype:'container',itemId:'selector_box'},
+        {xtype:'container',itemId:'advanced_filter_box'},
+        {xtype:'container',itemId:'display_box'}
+    ],
+
+    gridboard: null,
+
+    config: {
+        defaultSettings: {
+            showControls: true
+        }
+    },
+
+    integrationHeaders : {
+        name : "TSCreatedByList"
+    },
+                        
+    launch: function() {
+        this._addSelectors(this.down('#selector_box'));
+        //this._updateData();
+    },
+    
+    _addSelectors: function(container) {
+        var margin = 3;
+
+        container.add({
+            xtype: 'tsfieldpickerbutton',
+            modelNames: this.getModelNames(),
+            context: this.getContext(),
+            margin: margin,
+            stateful: true,
+            stateId: 'creator-grid-columns-1',
+            listeners: {
+                fieldsupdated: this.updateStoreFields,
+                scope: this
+            }
+        });
+
+        container.add({
+            xtype: 'rallyinlinefilterbutton',
+            modelNames: this.getModelNames(),
+            context: this.getContext(),
+            margin: margin,
+
+            stateful: true,
+            stateId: 'creator-grid-filters-1',
+            listeners: {
+                inlinefilterready: this.addInlineFilterPanel,
+                inlinefilterchange: this.updateGridFilters,
+                scope: this
+            }
+        });
+    },
+    
+    updateGridFilters: function(filter) {
+        this.logger.log('updateGridFilters', filter, filter.getWsapiFilter( ));
+        this.getSelectorBox().doLayout();
+        this.buildGridboardStores();
+    },
+    
+    buildGrid: function(store){
+        this.logger.log("buildGrid");
+        var container = this.getGridBox();
+        
+        container.removeAll();
+        
+        this.grid = container.add({
+            xtype:'rallygridboard',
+            context: this.getContext(),
+            modelNames: this.getChosenModelNames(),
+            toggleState: 'grid',
+            gridConfig: {
+                store: store,
+                columnCfgs: this.getFieldNames()
+            },
+            height: this.getHeight()
+        });
+    },
+    
+    buildGridboardStores: function() {
+        Ext.create('Rally.data.wsapi.TreeStoreBuilder').build({
+            models: this.getChosenModelNames(),
+            autoLoad: true,
+            enableHierarchy: false,
+            filters: this.getWsapiFilters()
+        }).then({
+            success: this.buildGrid,
+            failure: this.showErrorNotification,
+            scope: this
+        });
+    },
+    
+    showErrorNotification: function(msg) {
+        Ext.Msg.alert("", msg);
+    },
+    
+    getFieldNames: function() {
+        return this.down('tsfieldpickerbutton').getFields() || undefined;
+    },
+    
+    getWsapiFilters: function(){
+        var filters = null;
+
+        var filterButton = this.down('rallyinlinefilterbutton');
+        if (filterButton && filterButton.inlineFilterPanel && filterButton.getWsapiFilter()){
+            this.logger.log('advancedfilters', filterButton.getWsapiFilter(), filterButton.getFilters());
+            if (filters){
+                filters = filters.and(filterButton.getWsapiFilter());
+            } else {
+                filters = filterButton.getWsapiFilter();
+            }
+
+        }
+        return filters || [];
+    },
+    
+    updateStoreFields: function(fields) {
+        this.logger.log("updating fields to:", fields);
+        this.getGrid().reconfigureWithColumns(fields);
+        //this.buildGrid();
+    },
+    
+    addInlineFilterPanel: function(panel){
+        this.getAdvancedFilterBox().add(panel);
+    },
+    
+    getAdvancedFilterBox: function(){
+        return this.down('#advanced_filter_box');
+    },
+    
+    getSelectorBox: function() {
+        return this.down('#selector_box');
+    },
+    
+    getGrid: function() {
+        return this.grid;
+    },
+    
+    getGridBox: function() {
+        return this.down('#display_box');
+    },
+    
+    getChosenModelNames: function() {
+        if ( Ext.isEmpty(this.down('rallyinlinefilterbutton')) ) {
+            return this.getModelNames();
+        }
+        return this.down('rallyinlinefilterbutton').getTypes() || undefined;
+    },
+    
+    getModelNames: function() {
+        return ['Task','HierarchicalRequirement'];
+    },
+    
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+    
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    }
+    
+});
+
+            
+               Rally.launchApp('TSCreatedByList', {
+                   name: 'TS Created By List'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
