@@ -1,8 +1,16 @@
 #TS Created By List
 
+![screenshot](./images/screenshot.png "This is an example")
+
+This is a quick grid that lets you pick a user and find the things that she
+created.  The selection of creator is allowed on the quick filter (but not the 
+advanced field selector filter).
+
 ## Development Notes
 
-![screenshot](./images/screenshot.png "This is an example")
+* Requires lookback
+* If a user is chosen, this will first run over to look in lookback for snapshots 0
+for that user then apply the other filters
 
 ### First Load
 

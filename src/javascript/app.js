@@ -27,6 +27,7 @@ Ext.define("TSCreatedByList", {
         //this._updateData();
     },
     
+    
     _addSelectors: function(container) {
         var margin = 3;
 
@@ -49,8 +50,13 @@ Ext.define("TSCreatedByList", {
             context: this.getContext(),
             margin: margin,
 
-            stateful: true,
+            stateful: false,
             stateId: 'creator-grid-filters-1',
+            inlineFilterPanelConfig: {
+                quickFilterPanelConfig: {
+                    defaultFields: ['LookbackCreator'] 
+                }
+            },
             listeners: {
                 inlinefilterready: this.addInlineFilterPanel,
                 inlinefilterchange: this.updateGridFilters,
@@ -85,16 +91,42 @@ Ext.define("TSCreatedByList", {
     },
     
     buildGridboardStores: function() {
-        Ext.create('Rally.data.wsapi.TreeStoreBuilder').build({
-            models: this.getChosenModelNames(),
-            autoLoad: true,
-            enableHierarchy: false,
-            filters: this.getWsapiFilters()
-        }).then({
+        var me = this;
+        this.logger.log('buildGridboardStores');
+        this.getGridBox().setLoading(true);
+        
+        Deft.Chain.pipeline([
+            this._getFilteredObjectIDs,
+            
+            function(snapshots) {
+                return Ext.create('Rally.data.wsapi.TreeStoreBuilder').build({
+                    models: this.getChosenModelNames(),
+                    autoLoad: true,
+                    enableHierarchy: false,
+                    enableRootLevelPostGet: true,
+                    filters: this.getWsapiFilters(snapshots)
+                });
+            }
+        ],this).then({
             success: this.buildGrid,
             failure: this.showErrorNotification,
             scope: this
-        });
+        }).always(function() {me.getGridBox().setLoading(false);});
+    },
+    
+    _getFilteredObjectIDs: function() {
+        this.logger.log('_getFilteredObjectIDs',this.getLookbackPreFilter());
+
+        var lookback_filter = this.getLookbackPreFilter();
+        if ( Ext.isEmpty(lookback_filter) ) {
+            return null;
+        }
+        
+        var config = {
+            find: lookback_filter
+        };
+        
+        return this.loadLookbackRecords(config);
     },
     
     showErrorNotification: function(msg) {
@@ -105,7 +137,7 @@ Ext.define("TSCreatedByList", {
         return this.down('tsfieldpickerbutton').getFields() || undefined;
     },
     
-    getWsapiFilters: function(){
+    getWsapiFilters: function(snapshots){
         var filters = null;
 
         var filterButton = this.down('rallyinlinefilterbutton');
@@ -118,6 +150,30 @@ Ext.define("TSCreatedByList", {
             }
 
         }
+        
+        if ( snapshots ) {
+            var oid_filter = null;
+            
+            if ( snapshots.length === 0 ) {
+                // this means a user was chosen, but the user didn't create anything
+                 oid_filter = Rally.data.wsapi.Filter.and([{property:'ObjectID',value:-1}]);
+                
+            } else {
+                var oids = Ext.Array.map(snapshots, function(snapshot){
+                    return { property:'ObjectID', value:snapshot.get('ObjectID')};
+                });
+                oid_filter = Rally.data.wsapi.Filter.or(oids);
+                
+            }
+            if (filters){
+                filters = filters.and(oid_filter);
+            } else {
+                filters = oid_filter;
+            }
+        }
+        
+        
+
         return filters || [];
     },
     
@@ -128,6 +184,7 @@ Ext.define("TSCreatedByList", {
     },
     
     addInlineFilterPanel: function(panel){
+        this.logger.log('addInlineFilterPanel');
         this.getAdvancedFilterBox().add(panel);
     },
     
@@ -147,6 +204,53 @@ Ext.define("TSCreatedByList", {
         return this.down('#display_box');
     },
     
+    getCamelCaseModelNames: function(names){
+        var name_map = {
+            "hierarchicalrequirement": "HierarchicalRequirement",
+            "defect": "Defect",
+            "task": "Task"
+        };
+        
+        return Ext.Array.map(names, function(name){
+            return name_map[name.toLowerCase()] || name;
+        });
+    },
+    
+    getLookbackPreFilter: function() {
+        if ( Ext.isEmpty(this.down('rallyinlinefilterbutton')) ) {
+            return null;
+        }
+        var creator = this.down('rallyinlinefilterbutton').getCreator() || undefined;
+        
+        if ( Ext.isEmpty(creator) ) {
+            return null;
+        }
+        
+        if (! /^\/user/.test(creator) ) {
+            return;
+        }
+        
+        var creator_oid = Rally.util.Ref.getOidFromRef(creator);
+
+        if ( Ext.isEmpty(creator_oid) ) { return null; }
+        
+        var types = this.getCamelCaseModelNames(this.getChosenModelNames());
+
+        var filter = {
+            "_ProjectHierarchy": {
+                "$in": [this.getContext().getProject().ObjectID]
+            },
+            "_TypeHierarchy": {
+                "$in": types
+            },
+            "_SnapshotNumber": 0,
+            "_User": parseInt(creator_oid,10)
+
+        };
+                
+        return filter;
+    },
+    
     getChosenModelNames: function() {
         if ( Ext.isEmpty(this.down('rallyinlinefilterbutton')) ) {
             return this.getModelNames();
@@ -155,7 +259,32 @@ Ext.define("TSCreatedByList", {
     },
     
     getModelNames: function() {
-        return ['Task','HierarchicalRequirement'];
+        return ['Task','HierarchicalRequirement','Defect'];
+    },
+    
+    loadLookbackRecords: function(config,returnOperation){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+                
+        var default_config = {
+            fetch: ['ObjectID'],
+            "sort": { "_ValidFrom": -1 },
+            "removeUnauthorizedSnapshots":true
+        };
+        Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
     },
     
     getOptions: function() {

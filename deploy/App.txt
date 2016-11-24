@@ -3,16 +3,22 @@
 <head>
     <title>TS Created By List</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Nov 23 2016 13:27:05 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Nov 23 2016 17:03:03 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Nov 23 2016 13:27:05 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Wed Nov 23 2016 17:03:03 GMT-0800 (PST)";
         var STORY    = "US919";
         var BUILDER  = "jmartin";
-        var CHECKSUM = 7573551588;
+        var CHECKSUM = 12842950475;
     </script>
     
+    <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
+    
+    
+    <!--  
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
+    -->
+    
     <!-- our highcharts (needed so that we can add patterns) -->
     <script type="text/javascript" src="/apps/2.1/lib/analytics/analytics-all.js"></script>
 
@@ -212,63 +218,115 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
-
-Ext.override(Rally.ui.grid.InvalidGridColumnCfgFilterer,{
-    // don't want to remove columns just because they aren't on the model def
-    filter: function(model, columnCfgs){
-        return _.filter(columnCfgs, function(column) {
-            return true;
-        }, this);
+Ext.override(Rally.ui.inlinefilter.InlineFilterButton,{
+    getCreator: function() {
+        return this.inlineFilterPanel.getCreator();
     }
 });
 
-// Sometimes getting an error when trying to use the artifact model
-Ext.override(Rally.data.wsapi.artifact.Store,{
-    _getModelTypes: function() {
-        if ( Ext.isFunction(this.model.getArtifactComponentModels)) {
-            return _.pluck(this.model.getArtifactComponentModels(), 'typePath').join(',');
+Ext.override(Rally.ui.inlinefilter.InlineFilterPanel,{
+    getCreator: function() {
+        return this.quickFilterPanel.getCreator();
+    }
+});
+
+Ext.override(Rally.ui.inlinefilter.FilterFieldFactory, {
+    LookbackCreator: {
+        xtype: 'tscreatorsearchfield',
+        allowNoEntry: false,
+        noEntryValue: '/user/-1'
+    },
+});
+
+Ext.override(Rally.ui.inlinefilter.QuickFilterPanel,{
+    getCreator: function() {
+        var modelTypePicker = _.find(this.fields, {name: 'LookbackCreator'});
+        return modelTypePicker ? modelTypePicker.getValue() : [];
+    },
+    
+    _onAddQuickFilterClick: function() {
+        var addQuickFilterConfig = Ext.clone(this.addQuickFilterConfig);
+        var blackList =  _.map(this.fields, 'name');
+        
+        if (addQuickFilterConfig && addQuickFilterConfig.whiteListFields) {
+            addQuickFilterConfig.whiteListFields = _.reject(this.addQuickFilterConfig.whiteListFields, function(field){
+                return _.contains(blackList, field);
+            });
         }
-        return null;
+        // break out additional fields so they can be configured
+        var additionalFields = [
+            {
+                name: 'ArtifactSearch',
+                displayName: 'Search'
+            },
+            {
+                name: 'ModelType',
+                displayName: 'Type'
+            },
+            {
+                name: 'LookbackCreator',
+                displayName: 'Creator'
+            }
+        ];
+        if (addQuickFilterConfig && addQuickFilterConfig.additionalFields) {
+            additionalFields = _.reject(this.additionalFields, function(field){
+                return _.contains(blackList, field.name);
+            });
+        }
+        
+        
+        this.addQuickFilterPopover = Ext.create('Rally.ui.popover.FieldPopover', {
+            target: this.addQuickFilterButton.getEl(),
+            placement: ['bottom', 'top', 'left', 'right'],
+            fieldComboBoxConfig: _.merge({
+                model: this.model,
+                context: this.context,
+                emptyText: 'Search filters...',
+                additionalFields: additionalFields,
+                blackListFields: blackList,
+                listeners: {
+                    select: function(field, value) {
+                        var fieldSelected = value[0].raw;
+                        this.recordAction({
+                            description: 'quick filter added',
+                            miscData: {
+                                field: fieldSelected.name || fieldSelected
+                            }
+                        });
+                        this.addQuickFilterPopover.close();
+                        this._onAddQuickFilterSelect(fieldSelected);
+                    },
+                    destroy: function(){
+                        delete this.addQuickFilterPopover;
+                    },
+                    scope: this
+                }
+            }, addQuickFilterConfig, function(a, b) {
+                if (_.isArray(a)) {
+                    return a.concat(b);
+                }
+            })
+        });
     }
 });
 Ext.define('CA.agile.technicalservices.inlinefilter.CreatorSearchField', {
     alias: 'widget.tscreatorsearchfield',
-    extend: 'Rally.ui.inlinefilter.ArtifactSearchField',
+    extend: 'Rally.ui.combobox.UserSearchComboBox',
     requires: [
         'Rally.data.wsapi.Filter'
     ],
 
+    config: {
+        project: Rally.getApp() && Rally.getApp().getContext().getProjectRef(),
+    },
+
     allowBlank: true,
+   
     getFilter: function() {
-        var value = this.lastValue;
-        if (!Ext.isEmpty(value)) {
-            return Rally.data.wsapi.Filter.or([
-                {
-                    property: 'UserName',
-                    operator: 'contains',
-                    value: value
-                },
-                {
-                    property: 'DisplayName',
-                    operator: 'contains',
-                    value: value
-                },
-                {
-                    property: 'EmailAddress',
-                    operator: 'contains',
-                    value: value
-                },
-                {
-                    property: 'FirstName',
-                    operator: 'contains',
-                    value: value
-                },
-                {
-                    property: 'LastName',
-                    operator: 'contains',
-                    value: value
-                }
-            ]);
+        return {
+            property: "ObjectID",
+            operator: "!=",
+            value: parseInt( new Date().getTime() / 1000, 10)
         }
     }
 });
@@ -504,6 +562,7 @@ Ext.define("TSCreatedByList", {
         //this._updateData();
     },
     
+    
     _addSelectors: function(container) {
         var margin = 3;
 
@@ -526,8 +585,13 @@ Ext.define("TSCreatedByList", {
             context: this.getContext(),
             margin: margin,
 
-            stateful: true,
+            stateful: false,
             stateId: 'creator-grid-filters-1',
+            inlineFilterPanelConfig: {
+                quickFilterPanelConfig: {
+                    defaultFields: ['LookbackCreator'] 
+                }
+            },
             listeners: {
                 inlinefilterready: this.addInlineFilterPanel,
                 inlinefilterchange: this.updateGridFilters,
@@ -562,16 +626,42 @@ Ext.define("TSCreatedByList", {
     },
     
     buildGridboardStores: function() {
-        Ext.create('Rally.data.wsapi.TreeStoreBuilder').build({
-            models: this.getChosenModelNames(),
-            autoLoad: true,
-            enableHierarchy: false,
-            filters: this.getWsapiFilters()
-        }).then({
+        var me = this;
+        this.logger.log('buildGridboardStores');
+        this.getGridBox().setLoading(true);
+        
+        Deft.Chain.pipeline([
+            this._getFilteredObjectIDs,
+            
+            function(snapshots) {
+                return Ext.create('Rally.data.wsapi.TreeStoreBuilder').build({
+                    models: this.getChosenModelNames(),
+                    autoLoad: true,
+                    enableHierarchy: false,
+                    enableRootLevelPostGet: true,
+                    filters: this.getWsapiFilters(snapshots)
+                });
+            }
+        ],this).then({
             success: this.buildGrid,
             failure: this.showErrorNotification,
             scope: this
-        });
+        }).always(function() {me.getGridBox().setLoading(false);});
+    },
+    
+    _getFilteredObjectIDs: function() {
+        this.logger.log('_getFilteredObjectIDs',this.getLookbackPreFilter());
+
+        var lookback_filter = this.getLookbackPreFilter();
+        if ( Ext.isEmpty(lookback_filter) ) {
+            return null;
+        }
+        
+        var config = {
+            find: lookback_filter
+        };
+        
+        return this.loadLookbackRecords(config);
     },
     
     showErrorNotification: function(msg) {
@@ -582,7 +672,7 @@ Ext.define("TSCreatedByList", {
         return this.down('tsfieldpickerbutton').getFields() || undefined;
     },
     
-    getWsapiFilters: function(){
+    getWsapiFilters: function(snapshots){
         var filters = null;
 
         var filterButton = this.down('rallyinlinefilterbutton');
@@ -595,6 +685,30 @@ Ext.define("TSCreatedByList", {
             }
 
         }
+        
+        if ( snapshots ) {
+            var oid_filter = null;
+            
+            if ( snapshots.length === 0 ) {
+                // this means a user was chosen, but the user didn't create anything
+                 oid_filter = Rally.data.wsapi.Filter.and([{property:'ObjectID',value:-1}]);
+                
+            } else {
+                var oids = Ext.Array.map(snapshots, function(snapshot){
+                    return { property:'ObjectID', value:snapshot.get('ObjectID')};
+                });
+                oid_filter = Rally.data.wsapi.Filter.or(oids);
+                
+            }
+            if (filters){
+                filters = filters.and(oid_filter);
+            } else {
+                filters = oid_filter;
+            }
+        }
+        
+        
+
         return filters || [];
     },
     
@@ -605,6 +719,7 @@ Ext.define("TSCreatedByList", {
     },
     
     addInlineFilterPanel: function(panel){
+        this.logger.log('addInlineFilterPanel');
         this.getAdvancedFilterBox().add(panel);
     },
     
@@ -624,6 +739,53 @@ Ext.define("TSCreatedByList", {
         return this.down('#display_box');
     },
     
+    getCamelCaseModelNames: function(names){
+        var name_map = {
+            "hierarchicalrequirement": "HierarchicalRequirement",
+            "defect": "Defect",
+            "task": "Task"
+        };
+        
+        return Ext.Array.map(names, function(name){
+            return name_map[name.toLowerCase()] || name;
+        });
+    },
+    
+    getLookbackPreFilter: function() {
+        if ( Ext.isEmpty(this.down('rallyinlinefilterbutton')) ) {
+            return null;
+        }
+        var creator = this.down('rallyinlinefilterbutton').getCreator() || undefined;
+        
+        if ( Ext.isEmpty(creator) ) {
+            return null;
+        }
+        
+        if (! /^\/user/.test(creator) ) {
+            return;
+        }
+        
+        var creator_oid = Rally.util.Ref.getOidFromRef(creator);
+
+        if ( Ext.isEmpty(creator_oid) ) { return null; }
+        
+        var types = this.getCamelCaseModelNames(this.getChosenModelNames());
+
+        var filter = {
+            "_ProjectHierarchy": {
+                "$in": [this.getContext().getProject().ObjectID]
+            },
+            "_TypeHierarchy": {
+                "$in": types
+            },
+            "_SnapshotNumber": 0,
+            "_User": parseInt(creator_oid,10)
+
+        };
+                
+        return filter;
+    },
+    
     getChosenModelNames: function() {
         if ( Ext.isEmpty(this.down('rallyinlinefilterbutton')) ) {
             return this.getModelNames();
@@ -632,7 +794,32 @@ Ext.define("TSCreatedByList", {
     },
     
     getModelNames: function() {
-        return ['Task','HierarchicalRequirement'];
+        return ['Task','HierarchicalRequirement','Defect'];
+    },
+    
+    loadLookbackRecords: function(config,returnOperation){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+                
+        var default_config = {
+            fetch: ['ObjectID'],
+            "sort": { "_ValidFrom": -1 },
+            "removeUnauthorizedSnapshots":true
+        };
+        Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
     },
     
     getOptions: function() {

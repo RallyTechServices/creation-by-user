@@ -1,41 +1,21 @@
 Ext.define('CA.agile.technicalservices.inlinefilter.CreatorSearchField', {
     alias: 'widget.tscreatorsearchfield',
-    extend: 'Rally.ui.inlinefilter.ArtifactSearchField',
+    extend: 'Rally.ui.combobox.UserSearchComboBox',
     requires: [
         'Rally.data.wsapi.Filter'
     ],
 
+    config: {
+        project: Rally.getApp() && Rally.getApp().getContext().getProjectRef(),
+    },
+
     allowBlank: true,
+   
     getFilter: function() {
-        var value = this.lastValue;
-        if (!Ext.isEmpty(value)) {
-            return Rally.data.wsapi.Filter.or([
-                {
-                    property: 'UserName',
-                    operator: 'contains',
-                    value: value
-                },
-                {
-                    property: 'DisplayName',
-                    operator: 'contains',
-                    value: value
-                },
-                {
-                    property: 'EmailAddress',
-                    operator: 'contains',
-                    value: value
-                },
-                {
-                    property: 'FirstName',
-                    operator: 'contains',
-                    value: value
-                },
-                {
-                    property: 'LastName',
-                    operator: 'contains',
-                    value: value
-                }
-            ]);
+        return {
+            property: "ObjectID",
+            operator: "!=",
+            value: parseInt( new Date().getTime() / 1000, 10)
         }
     }
 });
