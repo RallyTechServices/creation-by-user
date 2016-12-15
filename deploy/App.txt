@@ -3,13 +3,13 @@
 <head>
     <title>TS Created By List</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Nov 23 2016 17:03:03 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Dec 15 2016 09:54:31 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Nov 23 2016 17:03:03 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Thu Dec 15 2016 09:54:31 GMT-0800 (PST)";
         var STORY    = "US919";
         var BUILDER  = "jmartin";
-        var CHECKSUM = 12842950475;
+        var CHECKSUM = 12935846071;
     </script>
     
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -612,7 +612,7 @@ Ext.define("TSCreatedByList", {
         
         container.removeAll();
         
-        this.grid = container.add({
+        this.gridboard = container.add({
             xtype:'rallygridboard',
             context: this.getContext(),
             modelNames: this.getChosenModelNames(),
@@ -714,6 +714,7 @@ Ext.define("TSCreatedByList", {
     
     updateStoreFields: function(fields) {
         this.logger.log("updating fields to:", fields);
+        console.log('grid:', this.getGrid());
         this.getGrid().reconfigureWithColumns(fields);
         //this.buildGrid();
     },
@@ -732,7 +733,7 @@ Ext.define("TSCreatedByList", {
     },
     
     getGrid: function() {
-        return this.grid;
+        return this.gridboard.getGridOrBoard();
     },
     
     getGridBox: function() {

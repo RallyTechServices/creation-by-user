@@ -77,7 +77,7 @@ Ext.define("TSCreatedByList", {
         
         container.removeAll();
         
-        this.grid = container.add({
+        this.gridboard = container.add({
             xtype:'rallygridboard',
             context: this.getContext(),
             modelNames: this.getChosenModelNames(),
@@ -179,6 +179,7 @@ Ext.define("TSCreatedByList", {
     
     updateStoreFields: function(fields) {
         this.logger.log("updating fields to:", fields);
+        console.log('grid:', this.getGrid());
         this.getGrid().reconfigureWithColumns(fields);
         //this.buildGrid();
     },
@@ -197,7 +198,7 @@ Ext.define("TSCreatedByList", {
     },
     
     getGrid: function() {
-        return this.grid;
+        return this.gridboard.getGridOrBoard();
     },
     
     getGridBox: function() {
