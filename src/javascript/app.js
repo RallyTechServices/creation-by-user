@@ -241,14 +241,14 @@ Ext.define("TSCreatedByList", {
         var types = this.getCamelCaseModelNames(this.getChosenModelNames());
 
         var filter = {
+            "_User": parseInt(creator_oid,10),
             "_SnapshotNumber": 0,
             "_ProjectHierarchy": {
                 "$in": [this.getContext().getProject().ObjectID]
             },
             "_TypeHierarchy": {
                 "$in": types
-            },
-            "_User": parseInt(creator_oid,10)
+            }
 
         };
                 

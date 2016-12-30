@@ -3,13 +3,13 @@
 <head>
     <title>TS Created By List</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Dec 29 2016 17:54:35 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Dec 29 2016 18:06:05 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Dec 29 2016 17:54:35 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Thu Dec 29 2016 18:06:05 GMT-0800 (PST)";
         var STORY    = "US919";
         var BUILDER  = "jmartin";
-        var CHECKSUM = 14051819285;
+        var CHECKSUM = 14051825761;
     </script>
     
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -778,14 +778,14 @@ Ext.define("TSCreatedByList", {
         var types = this.getCamelCaseModelNames(this.getChosenModelNames());
 
         var filter = {
+            "_User": parseInt(creator_oid,10),
             "_SnapshotNumber": 0,
             "_ProjectHierarchy": {
                 "$in": [this.getContext().getProject().ObjectID]
             },
             "_TypeHierarchy": {
                 "$in": types
-            },
-            "_User": parseInt(creator_oid,10)
+            }
 
         };
                 
