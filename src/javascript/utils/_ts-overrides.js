@@ -1,3 +1,5 @@
+
+
 Ext.override(Rally.ui.inlinefilter.InlineFilterButton,{
     getCreator: function() {
         return this.inlineFilterPanel.getCreator();

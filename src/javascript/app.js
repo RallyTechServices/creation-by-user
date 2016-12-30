@@ -17,6 +17,9 @@ Ext.define("TSCreatedByList", {
             showControls: true
         }
     },
+    
+    // make a limit for the lookback filter results because of recursion problems in making the wsapi filter
+    lookbackLimit: 5000,
 
     integrationHeaders : {
         name : "TSCreatedByList"
@@ -172,7 +175,7 @@ Ext.define("TSCreatedByList", {
             }
         }
         
-        
+        this.logger.log("Filters:", filters);
 
         return filters || [];
     },
@@ -238,13 +241,13 @@ Ext.define("TSCreatedByList", {
         var types = this.getCamelCaseModelNames(this.getChosenModelNames());
 
         var filter = {
+            "_SnapshotNumber": 0,
             "_ProjectHierarchy": {
                 "$in": [this.getContext().getProject().ObjectID]
             },
             "_TypeHierarchy": {
                 "$in": types
             },
-            "_SnapshotNumber": 0,
             "_User": parseInt(creator_oid,10)
 
         };
@@ -267,10 +270,14 @@ Ext.define("TSCreatedByList", {
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
                 
+        // 5000 is a good limit for number of object IDs that can be ORed together 
+        // (maximum callstack exceeded while creating the filter)
         var default_config = {
             fetch: ['ObjectID'],
             "sort": { "_ValidFrom": -1 },
-            "removeUnauthorizedSnapshots":true
+            "removeUnauthorizedSnapshots":true,
+            pageSize: this.lookbackLimit,
+            limit: this.lookbackLimit
         };
         Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
@@ -278,6 +285,20 @@ Ext.define("TSCreatedByList", {
                     if ( returnOperation ) {
                         deferred.resolve(operation);
                     } else {
+                        console.log('operation', operation);
+                        var limit = operation.limit || me.lookbackLimit;
+                        
+                        if ( operation.resultSet ) {
+                            if ( operation.resultSet.count < operation.resultSet.totalRecords ) {
+                                var msg = "Warning: Older results might not display.";
+                                me.logger.log("Warning: Older results might not display.  The selected user created more than " + limit + "records.");
+                                Rally.ui.notify.Notifier.showWarning({
+                                    message: msg,
+                                    duration: 5000
+                                });
+                            }
+                        }
+                        
                         deferred.resolve(records);
                     }
                 } else {

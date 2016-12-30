@@ -6,11 +6,19 @@ This is a quick grid that lets you pick a user and find the things that she
 created.  The selection of creator is allowed on the quick filter (but not the 
 advanced field selector filter).
 
+Note:  This app combines lookback and wsapi queries -- the Object IDs provided by the lookback representing the items
+created by the selected users have been limited in this app to the 5000 objects created most recently by that user.  When
+there are more objects created by that user, the app will display a small green notifier message at the top with this message:
+"Warning: Older results might not display."  You can look in the console log to see the number differences.  
+
 ## Development Notes
 
 * Requires lookback
 * If a user is chosen, this will first run over to look in lookback for snapshots 0
-for that user then apply the other filters
+made by that user then apply the other filters to WSAPI. 
+* The reason for the 5000 limit:  The wsapi filter is created as a long string of ORs for the Object IDs selected.  Creating a 
+filter involves a recursive looping through the nodes of the filter in order to create the right number of parenthesis.  Somewhere
+around 6000 nodes the app will reach a Maximum callstack exceeded error.
 
 ### First Load
 
